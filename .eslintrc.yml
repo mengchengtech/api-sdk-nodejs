@@ -1,0 +1,42 @@
+root: true
+extends:
+  - standard
+  - plugin:node/recommended
+  - plugin:security/recommended
+plugins:
+  - html
+  - vue
+  - node
+  - mocha
+  - security
+globals:
+  # 标识全局引用的 vue 等变量
+  vue: false
+  run: false
+env:
+  browser: true
+  commonjs: true
+  es6: true
+  node: true
+  mocha: true
+rules:
+  # 忽略一个对象属性访问注入的安全风险提示
+  security/detect-object-injection: 0
+  security/detect-non-literal-fs-filename: 0
+  # 根据屏幕分辨率情况，对长度超过一定长度的代码行进行警告，并忽略注释、字符串等情况
+  max-len:
+    - 1
+    - code: 120
+      tabWidth: 2
+      ignoreComments: true
+      ignoreTrailingComments: true
+      ignoreUrls: true
+      ignoreStrings: true
+      ignoreTemplateLiterals: true
+overrides:
+  - files: "test/**"
+    rules:
+      node/no-unpublished-require: 0
+      node/no-missing-require: 0
+      no-unused-expressions: 0
+

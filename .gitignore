@@ -1,0 +1,10 @@
+.vscode
+node_modules
+package-lock.json
+git.properties
+.nyc_output
+coverage
+*.patch
+*.diff
+dist
+yarn.lock

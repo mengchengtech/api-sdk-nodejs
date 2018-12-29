@@ -1,0 +1,12 @@
+{
+  "all": true,
+  "reporter": [
+    "lcov",
+    "text-summary"
+  ],
+  "exclude": [
+    "lib/browser",
+    "coverage",
+    "test"
+  ]
+}
