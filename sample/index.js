@@ -30,6 +30,8 @@ async function doRun () {
   }
   const projectIds = await getProjects()
 
+  await getBiz('projectSpot')
+
   for (const projId of projectIds) {
     await getPcr(projId)
   }
@@ -62,6 +64,25 @@ async function getProjects () {
     startId = projects[projects.length - 1].version
   }
   return projectIds
+}
+
+/**
+ *
+ * @param {string} table
+ */
+async function getBiz (table) {
+  const apiUrl = `/v2/biz-data`
+  try {
+    const arr = await client.post(apiUrl, {
+      body: {
+        tableName: table
+      },
+      headers: { 'content-type': 'application/json' }
+    })
+    logger.info('get %d records on table %s', arr.length, table)
+  } catch (ex) {
+    logger.error('call api error:  %s', ex.message)
+  }
 }
 
 /**

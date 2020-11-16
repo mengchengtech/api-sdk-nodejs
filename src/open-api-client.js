@@ -72,6 +72,7 @@ class OpenApiClient {
     })
 
     option.json = true
+    option.method = method
     option.headers = Object.assign({}, option.headers, signatureInfo)
     try {
       const result = await asyncRequest(option)
@@ -97,7 +98,7 @@ function resolveError (err) {
   let $ = cheerio.load(body, { xmlMode: true, normalizeWhitespace: true })
   let rawError = {}
 
-  $('Error *').each((index, node) => {
+  $('Error *').each(function (index, node) {
     rawError[node.name] = cheerio(node).text()
   })
   err.code = rawError.Code
