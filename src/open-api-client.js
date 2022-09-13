@@ -1,5 +1,7 @@
 const generateSignatureInfo = require('./signature')
 const { URL } = require('url')
+const xpath = require('xpath')
+const { DOMParser } = require('xmldom')
 const asyncRequest = require('request-promise-native')
 
 class OpenApiClient {
@@ -94,13 +96,15 @@ function resolveError (err) {
   }
 
   // xml格式
-  const cheerio = require('cheerio')
-  let $ = cheerio.load(body, { xmlMode: true, normalizeWhitespace: true })
-  let rawError = {}
+  const doc = new DOMParser().parseFromString(body)
+  const rawError = {}
 
-  $('Error *').each(function (index, node) {
-    rawError[node.name] = cheerio(node).text()
-  })
+  /** @type {Element[]} */
+  // @ts-ignore
+  const nodes = xpath.select('/Error/*', doc)
+  for (const node of nodes) {
+    rawError[node.localName] = node.textContent
+  }
   err.code = rawError.Code
   err.desc = rawError.Message
   err.handled = true

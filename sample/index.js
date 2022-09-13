@@ -1,22 +1,10 @@
-const log4js = require('log4js')
 const fs = require('fs')
 const { OpenApiClient } = require('../src')
-
-const log4jsConfig = {
-  appenders: {
-    console: { type: 'console' }
-  },
-  categories: {
-    default: { appenders: ['console'], level: 'INFO' }
-  }
-}
-log4js.configure(log4jsConfig)
 
 const accessId = 'accessId'
 const secretKey = 'secretKey'
 const baseUri = 'https://api.mctech.vip'
 
-const logger = log4js.getLogger('logger')
 const outputFile = 'project-construction-record.txt'
 const client = new OpenApiClient(baseUri, accessId, secretKey)
 
@@ -28,12 +16,14 @@ async function doRun () {
   if (fs.existsSync(outputFile)) {
     fs.unlinkSync(outputFile)
   }
-  const projectIds = await getProjects()
-
-  await getBiz('projectSpot')
-
-  for (const projId of projectIds) {
-    await getPcr(projId)
+  try {
+    const projectIds = await getProjects()
+    await getBiz('projectSpot')
+    for (const projId of projectIds) {
+      await getPcr(projId)
+    }
+  } catch (ex) {
+    console.log(ex)
   }
 
   process.exit(0)
@@ -52,8 +42,8 @@ async function getProjects () {
   while (true) {
     const apiUrl = `/org-api/projects?start=${startId}&limit=${pageSize}`
     /**
-       * @type {any[]}
-       */
+     * @type {any[]}
+     */
     const projects = await client.get(apiUrl)
     for (const proj of projects) {
       projectIds.push(proj.id)
@@ -72,17 +62,13 @@ async function getProjects () {
  */
 async function getBiz (table) {
   const apiUrl = `/v2/biz-data`
-  try {
-    const arr = await client.post(apiUrl, {
-      body: {
-        tableName: table
-      },
-      headers: { 'content-type': 'application/json' }
-    })
-    logger.info('get %d records on table %s', arr.length, table)
-  } catch (ex) {
-    logger.error('call api error:  %s', ex.message)
-  }
+  const arr = await client.post(apiUrl, {
+    body: {
+      tableName: table
+    },
+    headers: { 'content-type': 'application/json' }
+  })
+  console.log(`get ${arr.length} records on table ${table}`)
 }
 
 /**
@@ -95,20 +81,16 @@ async function getPcr (orgId) {
   const pageSize = 50
   while (true) {
     const apiUrl = `/external/project-construction-record?startId=${startId}&startVersion=${startVersion}&limit=${pageSize}&orgId=${orgId}`
-    try {
-      const arr = await client.get(apiUrl)
-      const count = arr.length
-      totalCount += count
-      writePcrFile(arr)
-      logger.info('get %d records on project %d', totalCount, orgId)
-      if (count < pageSize) {
-        break
-      }
-      startId = arr[arr.length - 1].id
-      startVersion = arr[arr.length - 1].version
-    } catch (ex) {
-      logger.error('call api error:  %s', ex.message)
+    const arr = await client.get(apiUrl)
+    const count = arr.length
+    totalCount += count
+    writePcrFile(arr)
+    console.log(`get ${totalCount} records on project ${orgId}`)
+    if (count < pageSize) {
+      break
     }
+    startId = arr[arr.length - 1].id
+    startVersion = arr[arr.length - 1].version
   }
 }
 

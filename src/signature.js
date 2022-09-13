@@ -1,14 +1,16 @@
-const CryptoJS = require('crypto-js')
+const crypto = require('crypto')
 
 /**
-   *
-   * @param {SignatureOption} option
-   */
+ *
+ * @param {SignatureOption} option
+ */
 module.exports = function generateSignatureInfo (option) {
   let method = option.method.toUpperCase()
   if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
     if (!option.contentType) {
-      throw new Error(`http请求缺少'content-type'头。请求方式为[${method}]时，需要在RpcInvoker的headers属性上设置'content-type'`)
+      throw new Error(
+        `http请求缺少'content-type'头。请求方式为[${method}]时，需要在RpcInvoker的headers属性上设置'content-type'`
+      )
     }
   }
   let date = new Date().toGMTString()
@@ -42,10 +44,17 @@ function computeSignature (option, date) {
   return hmacSha1(policy, option.secret)
 }
 
+/**
+ *
+ * @param {string} content
+ * @param {string} key
+ * @param {'base64' | 'hex'} encoding
+ * @returns
+ */
 function hmacSha1 (content, key, encoding = 'base64') {
-  let data = CryptoJS.HmacSHA1(content, key)
-  let enc = encoding === 'base64' ? CryptoJS.enc.Base64 : CryptoJS.enc.Hex
-  return data.toString(enc)
+  const hmac = crypto.createHmac('sha1', key)
+  const digest = hmac.update(content).digest()
+  return digest.toString(encoding)
 }
 
 /**
