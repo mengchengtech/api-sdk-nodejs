@@ -1,7 +1,7 @@
 const generateSignatureInfo = require('./signature')
 const { URL } = require('url')
 const xpath = require('xpath')
-const { DOMParser } = require('xmldom')
+const { DOMParser } = require('@xmldom/xmldom')
 const asyncRequest = require('request-promise-native')
 
 class OpenApiClient {
