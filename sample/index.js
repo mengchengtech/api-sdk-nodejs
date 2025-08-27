@@ -30,7 +30,7 @@ async function doRun () {
 }
 
 /**
- * @returns {number[]}
+ * @returns {Promise<number[]>}
  */
 async function getProjects () {
   /**

@@ -1,0 +1,11 @@
+{
+  "exit": true,
+  "bail": false,
+  "colors": true,
+  "recursive": true,
+  "full-trace": true,
+  "timeout": 30000,
+  "ui": "bdd",
+  "file": "./test/env",
+  "reporter-option": "maxDiffSize=102400"
+}

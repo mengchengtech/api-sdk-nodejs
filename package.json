@@ -24,5 +24,9 @@
     "request-promise-native": "^1.0.9",
     "xpath": "^0.0.32"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^10.0.0"
+  }
 }
