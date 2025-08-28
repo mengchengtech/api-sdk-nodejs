@@ -10,7 +10,7 @@ const client = new OpenApiClient(
 
 async function testGetByHeader () {
   try {
-    const data = await client.get(config.apiPath, {
+    const result = await client.get(config.apiPath, {
       query: { integratedProjectId: config.integrationId },
       headers: {
         'X-iwop-before': 'wq666',
@@ -18,6 +18,7 @@ async function testGetByHeader () {
         'x-IWOP-after': 'wq666'
       }
     })
+    const data = result.getJson()
     console.log(data)
   } catch (err) {
     if (err instanceof OpenApiResponseError) {
@@ -33,7 +34,7 @@ async function testGetByHeader () {
 
 async function testGetByQuery1 () {
   try {
-    const data = await client.get(config.apiPath, {
+    const result = await client.get(config.apiPath, {
       signedBy: {
         mode: 'query',
         parameters: { duration: 3600 }
@@ -45,6 +46,7 @@ async function testGetByQuery1 () {
         'x-IWOP-after': 'wq666'
       }
     })
+    const data = await result.getJson()
     console.log(data)
   } catch (err) {
     if (err instanceof OpenApiResponseError) {
@@ -60,7 +62,8 @@ async function testGetByQuery1 () {
 
 async function testGetByQuery2 () {
   try {
-    const data = await client.get(config.apiPath, {
+    const result = await client.get(config.apiPath, {
+      responseType: 'stream',
       signedBy: 'query',
       query: {
         integratedProjectId: config.integrationId,
@@ -69,6 +72,8 @@ async function testGetByQuery2 () {
         'x-IWOP-after': 'wq666'
       }
     })
+    const data = await result.getJson()
+    console.log(data)
   } catch (err) {
     if (err instanceof OpenApiResponseError) {
       // TODO: 处理api网关返回的异常
@@ -83,12 +88,14 @@ async function testGetByQuery2 () {
 
 async function testPostByHeader () {
   try {
-    const data = await client.post(config.apiPath, {
+    const result = await client.post(config.apiPath, {
+      responseType: 'stream',
       query: { integratedProjectId: config.integrationId },
       contentType: 'application/xml',
       headers: { 'x-iwop-integration-id': config.integrationId },
       body: '<demo></demo>'
     })
+    const data = await result.getJson()
     console.log(data)
   } catch (err) {
     if (err instanceof OpenApiResponseError) {

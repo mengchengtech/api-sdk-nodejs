@@ -12,6 +12,9 @@ declare type SignedData = import('../types').SignedData
 declare type HeaderSignedInfo = import('../types').HeaderSignedInfo
 declare type QuerySignedInfo = import('../types').QuerySignedInfo
 
+declare type TypedRequestResult = import('../types').TypedRequestResult
+declare type StreamRequestResult = import('../types').StreamRequestResult
+
 declare type ClientGenericMethod = <T extends ResponseTypeMap>(
   this: OpenApiClient,
   apiPath: string,

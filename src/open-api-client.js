@@ -1,49 +1,12 @@
 const { URL } = require('url')
 const { AxiosHeaders } = require('axios')
 const defaultAxios = require('axios').default
-const { IncomingMessage } = require('http')
 const utility = require('./utility')
 const { OpenApiClientError, OpenApiResponseError } = require('./open-api-error')
+const { StreamResult, TypedResult } = require('./request-result')
 
 const CONTENT_TYPE_VALUE = 'application/json; charset=UTF-8'
 const ACCEPT_VALUE = 'application/json, application/xml, */*'
-
-/**
- *
- * @param {import('axios').AxiosResponse<any, any>} res
- */
-async function tryResolveError (res) {
-  if (!res) {
-    return
-  }
-
-  if (typeof res.data === 'string') {
-    return
-  }
-
-  if (res.data instanceof Buffer) {
-    res.data = res.data.toString('utf-8')
-    return
-  }
-
-  if (res.data instanceof IncomingMessage) {
-    /** @type {Buffer} */
-    const data = await new Promise((resolve, reject) => {
-      /** @type {IncomingMessage} */
-      const httpRes = res.data
-      const buffers = []
-      httpRes
-        .on('data', chunk => {
-          buffers.push(chunk)
-        })
-        .on('end', () => {
-          return resolve(Buffer.concat(buffers))
-        })
-        .on('error', reject)
-    })
-    res.data = data.toString('utf-8')
-  }
-}
 
 class OpenApiClient {
   /**
@@ -82,7 +45,7 @@ class OpenApiClient {
    * @returns {Promise<ResponseTypeMap[T]>}
    */
   async get (apiPath, option) {
-    return this._invoke('GET', apiPath, option)
+    return this.request({ method: 'GET' }, apiPath, option)
   }
 
   /**
@@ -92,7 +55,7 @@ class OpenApiClient {
    * @returns {Promise<ResponseTypeMap[T]>}
    */
   async post (apiPath, option) {
-    return this._invoke('POST', apiPath, option)
+    return this.request({ method: 'POST' }, apiPath, option)
   }
 
   /**
@@ -102,7 +65,7 @@ class OpenApiClient {
    * @returns {Promise<ResponseTypeMap[T]>}
    */
   async delete (apiPath, option) {
-    return this._invoke('DELETE', apiPath, option)
+    return this.request({ method: 'DELETE' }, apiPath, option)
   }
 
   /**
@@ -112,7 +75,7 @@ class OpenApiClient {
    * @returns {Promise<ResponseTypeMap[T]>}
    */
   async patch (apiPath, option) {
-    return this._invoke('PATCH', apiPath, option)
+    return this.request({ method: 'PATCH' }, apiPath, option)
   }
 
   /**
@@ -122,31 +85,7 @@ class OpenApiClient {
    * @returns {Promise<ResponseTypeMap[T]>}
    */
   async put (apiPath, option) {
-    return this._invoke('PUT', apiPath, option)
-  }
-
-  /**
-   * @private
-   * @template {keyof ResponseTypeMap} T
-   *
-   * @param {'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT'} method
-   * @param {string} apiPath
-   * @param {RequestOption<T>} option
-   * @returns {Promise<ResponseTypeMap[T]>}
-   */
-  async _invoke (method, apiPath, option) {
-    try {
-      const result = await this.request({ method }, apiPath, option)
-      return result.data
-    } catch (err) {
-      if (err instanceof OpenApiResponseError) {
-        const o = /** @type {any} */ (err)
-        o.code = err.data.Code
-        o.desc = err.data.Message
-        o.handled = true
-      }
-      throw err
-    }
+    return this.request({ method: 'PUT' }, apiPath, option)
   }
 
   /**
@@ -183,29 +122,44 @@ class OpenApiClient {
     this.makeSignature(req, option.signedBy)
     req.timeout = option.timeout
     try {
-      if (option.responseType) {
-        switch (option.responseType) {
-          case 'buffer':
-            req.responseType = 'arraybuffer'
-            break
-          case 'json':
-          case 'text':
-          case 'stream':
-            req.responseType = option.responseType
-            break
-        }
+      switch (option.responseType) {
+        case 'buffer':
+          req.responseType = 'arraybuffer'
+          break
+        case 'stream':
+          req.responseType = 'stream'
+          break
+        case 'json':
+        case undefined:
+        case null:
+          req.responseType = 'json'
+          break
+        case 'string':
+        default:
+          req.responseType = 'text'
+          break
       }
-      const result = await this._httpClient.request(req)
-      return result
+      const response = await this._httpClient.request(req)
+      return /** @type {ResponseTypeMap[T]} */ /** @type {any} */ (
+        req.responseType === 'stream'
+          ? new StreamResult(response)
+          : new TypedResult(response)
+      )
     } catch (err) {
       if (!defaultAxios.isAxiosError(err)) {
         throw err
       }
       const res = err.response
       if (res) {
-        await tryResolveError(res)
-        const data = res.data
-        const errorData = utility.resolveError(data)
+        let xml = ''
+        if (req.responseType === 'stream') {
+          const result = new StreamResult(res)
+          xml = await result.getString()
+        } else {
+          const result = new TypedResult(res)
+          xml = result.getString()
+        }
+        const errorData = utility.resolveError(xml)
         throw new OpenApiResponseError(err.message, res.status, err, errorData)
       }
       throw err

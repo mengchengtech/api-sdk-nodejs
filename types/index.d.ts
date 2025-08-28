@@ -22,10 +22,10 @@ declare interface SignatureOption {
 }
 
 declare interface ResponseTypeMap {
-  buffer: Buffer
-  json: any
-  text: string
-  stream: NodeJS.ReadableStream
+  string: TypedRequestResult
+  buffer: TypedRequestResult
+  json: TypedRequestResult
+  stream: StreamRequestResult
 }
 declare type JSONObject = any[] | Record<string, any>
 
@@ -103,7 +103,7 @@ export class OpenApiClient {
     req: AxiosRequestConfig,
     apiPath: string,
     option: RequestOption<T>
-  ): Promise<AxiosResponse>
+  ): Promise<ResponseTypeMap[T]>
 }
 
 declare interface ApiGatewayErrorData {
@@ -162,4 +162,51 @@ declare namespace utility {
     duration?: number
   ): QuerySignedInfo
   function resolveError(xml: string): ApiGatewayErrorData
+}
+
+declare interface RequestResult {
+  /**
+   * 返回结果状态码
+   */
+  get status(): number
+
+  /**
+   * 获取内容的ContentType
+   */
+  get contentType(): string
+}
+
+declare interface TypedRequestResult extends RequestResult {
+  /**
+   * 如果结果是字符串，则返回字符串。否则抛出不支持的异常
+   */
+  getString(): string
+  /**
+   * 如果结果是Buffer，则返回Buffer。否则抛出不支持的异常
+   */
+  getBuffer(): Buffer
+  /**
+   * 如果结果是json对象，则返回json。否则抛出不支持的异常
+   */
+  getJson(): any
+  /**
+   * 以上方法的综合体，不区分类型
+   */
+  getRaw(): any
+}
+
+/**
+ * 请求参数中responseType为'stream'返回的对象
+ */
+declare interface StreamRequestResult extends RequestResult {
+  /**
+   * 以字符串方式获取返回的文本内容
+   */
+  getString(): Promise<string>
+  /**
+   * @returns {Promise<Buffer>}
+   */
+  getBuffer(): Promise<Buffer>
+  getJson(): Promise<any>
+  openRead(): NodeJS.ReadableStream
 }
