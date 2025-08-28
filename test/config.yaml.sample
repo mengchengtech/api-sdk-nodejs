@@ -1,0 +1,6 @@
+credential:
+  accessId: '{accessId}'
+  secretKey: '{secretKey}'
+baseUrl: 'https://test.mctech.vip/api-ex/-itg-/'
+apiPath: 'cb/project-wbs/items'
+integrationId: '{integrationId}'
