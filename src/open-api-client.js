@@ -1,113 +1,246 @@
-const generateSignatureInfo = require('./signature')
 const { URL } = require('url')
-const xpath = require('xpath')
-const { DOMParser } = require('@xmldom/xmldom')
-const asyncRequest = require('request-promise-native')
+const { AxiosHeaders } = require('axios')
+const defaultAxios = require('axios').default
+const { IncomingMessage } = require('http')
+const utility = require('./utility')
+const { OpenApiClientError, OpenApiResponseError } = require('./open-api-error')
+
+const CONTENT_TYPE_VALUE = 'application/json; charset=UTF-8'
+const ACCEPT_VALUE = 'application/json, application/xml, */*'
+
+/**
+ *
+ * @param {import('axios').AxiosResponse<any, any>} res
+ */
+async function tryResolveError (res) {
+  if (!res) {
+    return
+  }
+
+  if (typeof res.data === 'string') {
+    return
+  }
+
+  if (res.data instanceof Buffer) {
+    res.data = res.data.toString('utf-8')
+    return
+  }
+
+  if (res.data instanceof IncomingMessage) {
+    /** @type {Buffer} */
+    const data = await new Promise((resolve, reject) => {
+      /** @type {IncomingMessage} */
+      const httpRes = res.data
+      const buffers = []
+      httpRes
+        .on('data', chunk => {
+          buffers.push(chunk)
+        })
+        .on('end', () => {
+          return resolve(Buffer.concat(buffers))
+        })
+        .on('error', reject)
+    })
+    res.data = data.toString('utf-8')
+  }
+}
 
 class OpenApiClient {
   /**
    *
    * @param {string | URL} baseUri
-   * @param {*} accessId
-   * @param {*} secretKey
+   * @param {string} accessId
+   * @param {string} secretKey
    */
   constructor (baseUri, accessId, secretKey) {
     this._baseUri = typeof baseUri === 'string' ? new URL(baseUri) : baseUri
+    if (!accessId) {
+      throw new OpenApiClientError('accessId不能为null或empty')
+    }
+    if (!secretKey) {
+      throw new OpenApiClientError('secret不能为null或empty')
+    }
+
     this._accessId = accessId
     this._secretKey = secretKey
-  }
-
-  /**
-   * @param {string} apiUrl
-   * @param {TUriUrlOptions & TOptions} [option = null]  ‘request’模块对应的参数，详细信息参见request模块的描述
-   */
-  async get (apiUrl, option) {
-    const result = await this._invoke(apiUrl, 'GET', option)
-    return result
-  }
-
-  /**
-   * @param {string} apiUrl
-   * @param {TUriUrlOptions & TOptions} [option = null]  ‘request’模块对应的参数，详细信息参见request模块的描述
-   */
-  async post (apiUrl, option) {
-    const result = await this._invoke(apiUrl, 'POST', option)
-    return result
-  }
-
-  /**
-   * @param {string} apiUrl
-   * @param {TUriUrlOptions & TOptions} [option = null]  ‘request’模块对应的参数，详细信息参见request模块的描述
-   */
-  async delete (apiUrl, option) {
-    const result = await this._invoke(apiUrl, 'DELETE', option)
-    return result
-  }
-
-  /**
-   * @param {string} apiUrl
-   * @param {TUriUrlOptions & TOptions} [option = null]  ‘request’模块对应的参数，详细信息参见request模块的描述
-   */
-  async patch (apiUrl, option) {
-    const result = await this._invoke(apiUrl, 'PATCH', option)
-    return result
-  }
-
-  /**
-   * @param {string} apiUrl
-   * @param {TUriUrlOptions & TOptions} [option = null] ‘request’模块对应的参数，详细信息参见request模块的描述
-   */
-  async put (apiUrl, option) {
-    const result = await this._invoke(apiUrl, 'PUT', option)
-    return result
-  }
-
-  async _invoke (apiUrl, method, option = {}) {
-    option.url = new URL(apiUrl, this._baseUri)
-    let signatureInfo = generateSignatureInfo({
-      accessId: this._accessId,
-      secret: this._secretKey,
-      method,
-      contentType: option.headers ? option.headers['content-type'] : undefined,
-      resourceUrl: option.url,
-      headers: option.headers || {}
+    this._httpClient = defaultAxios.create({
+      headers: {
+        Accept: ACCEPT_VALUE,
+        'Accept-Language': 'zh-CN',
+        'Accept-Encoding': 'gzip,deflate'
+      },
+      decompress: true,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     })
+  }
 
-    option.json = true
-    option.method = method
-    option.headers = Object.assign({}, option.headers, signatureInfo)
+  /**
+   * @template {keyof ResponseTypeMap} T
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async get (apiPath, option) {
+    return this._invoke('GET', apiPath, option)
+  }
+
+  /**
+   * @template {keyof ResponseTypeMap} T
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async post (apiPath, option) {
+    return this._invoke('POST', apiPath, option)
+  }
+
+  /**
+   * @template {keyof ResponseTypeMap} T
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async delete (apiPath, option) {
+    return this._invoke('DELETE', apiPath, option)
+  }
+
+  /**
+   * @template {keyof ResponseTypeMap} T
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async patch (apiPath, option) {
+    return this._invoke('PATCH', apiPath, option)
+  }
+
+  /**
+   * @template {keyof ResponseTypeMap} T
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async put (apiPath, option) {
+    return this._invoke('PUT', apiPath, option)
+  }
+
+  /**
+   * @private
+   * @template {keyof ResponseTypeMap} T
+   *
+   * @param {'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT'} method
+   * @param {string} apiPath
+   * @param {RequestOption<T>} option
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async _invoke (method, apiPath, option) {
     try {
-      const result = await asyncRequest(option)
-      return result
+      const result = await this.request({ method }, apiPath, option)
+      return result.data
     } catch (err) {
-      resolveError(err)
+      if (err instanceof OpenApiResponseError) {
+        const o = /** @type {any} */ (err)
+        o.code = err.data.Code
+        o.desc = err.data.Message
+        o.handled = true
+      }
       throw err
     }
   }
-}
 
-/**
- * @param {Error} err
- */
-function resolveError (err) {
-  let body = err.response.body
-  if (!body) {
-    return
+  /**
+   * @template {keyof ResponseTypeMap} T
+   *
+   * @param {import('axios').AxiosRequestConfig} req
+   * @param {string} apiPath
+   * @param {RequestOption<T>} [option]
+   * @returns {Promise<ResponseTypeMap[T]>}
+   */
+  async request (req, apiPath, option) {
+    req = { ...req }
+    if (!(req.headers instanceof AxiosHeaders)) {
+      req.headers = new AxiosHeaders(req.headers)
+    }
+    option = option || {}
+
+    if (option.body) {
+      req.data = option.body
+      req.headers.set('Content-Type', option.contentType || CONTENT_TYPE_VALUE)
+    }
+
+    const apiUrl = new URL(apiPath, this._baseUri)
+    if (option.query) {
+      for (const key in option.query) {
+        apiUrl.searchParams.set(key, option.query[key])
+      }
+    }
+    req.url = apiUrl.toString()
+    if (option.headers) {
+      req.headers.set(option.headers)
+    }
+
+    this.makeSignature(req, option.signedBy)
+    req.timeout = option.timeout
+    try {
+      if (option.responseType) {
+        switch (option.responseType) {
+          case 'buffer':
+            req.responseType = 'arraybuffer'
+            break
+          case 'json':
+          case 'text':
+          case 'stream':
+            req.responseType = option.responseType
+            break
+        }
+      }
+      const result = await this._httpClient.request(req)
+      return result
+    } catch (err) {
+      if (!defaultAxios.isAxiosError(err)) {
+        throw err
+      }
+      const res = err.response
+      if (res) {
+        await tryResolveError(res)
+        const data = res.data
+        const errorData = utility.resolveError(data)
+        throw new OpenApiResponseError(err.message, res.status, err, errorData)
+      }
+      throw err
+    }
   }
 
-  // xml格式
-  const doc = new DOMParser().parseFromString(body)
-  const rawError = {}
-
-  /** @type {Element[]} */
-  // @ts-ignore
-  const nodes = xpath.select('/Error/*', doc)
-  for (const node of nodes) {
-    rawError[node.localName] = node.textContent
+  /**
+   * @private
+   *
+   * @param {import('axios').AxiosRequestConfig} req
+   * @param {import('../types').SignatureMode} [signedBy]
+   */
+  makeSignature (req, signedBy) {
+    const reqHeaders = /** @type {AxiosHeaders} */ (req.headers)
+    /** @type {SignatureOption} */
+    const option = {
+      accessId: this._accessId,
+      secret: this._secretKey,
+      resourceUrl: new URL(req.url),
+      method: req.method,
+      contentType: /** @type {string} */ (reqHeaders.get('Content-Type')),
+      headers: req.headers
+    }
+    const signedInfo = utility.generateSignature(signedBy, option)
+    if ('headers' in signedInfo) {
+      reqHeaders.set(signedInfo.headers)
+    }
+    if ('query' in signedInfo) {
+      const targetURL = new URL(req.url)
+      for (const key in signedInfo.query) {
+        targetURL.searchParams.set(key, signedInfo.query[key])
+      }
+      req.url = targetURL.toString()
+    }
   }
-  err.code = rawError.Code
-  err.desc = rawError.Message
-  err.handled = true
 }
 
 module.exports = { OpenApiClient }

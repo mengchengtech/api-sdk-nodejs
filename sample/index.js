@@ -1,99 +1,89 @@
-const fs = require('fs')
-const { OpenApiClient } = require('../src')
+const config = require('./config')
+const { OpenApiClient, OpenApiResponseError } = require('../src')
 
-const accessId = 'accessId'
-const secretKey = 'secretKey'
-const baseUri = 'https://api.mctech.vip'
+/** @type {import('../types').OpenApiClient} */
+const client = new OpenApiClient(
+  config.baseUrl,
+  config.credential.accessId,
+  config.credential.secretKey
+)
 
-const outputFile = 'project-construction-record.txt'
-const client = new OpenApiClient(baseUri, accessId, secretKey)
-
-let totalCount = 0
-
-doRun()
-
-async function doRun () {
-  if (fs.existsSync(outputFile)) {
-    fs.unlinkSync(outputFile)
-  }
+async function testGetByHeader () {
   try {
-    const projectIds = await getProjects()
-    await getBiz('projectSpot')
-    for (const projId of projectIds) {
-      await getPcr(projId)
+    const data = await client.get(config.apiPath, {
+      query: { integratedProjectId: config.integrationId },
+      headers: {
+        'X-iwop-before': 'wq666',
+        'x-iwop-integration-id': config.integrationId,
+        'x-IWOP-after': 'wq666'
+      }
+    })
+    console.log(data)
+  } catch (err) {
+    if (err instanceof OpenApiResponseError) {
+      // TODO: 处理api网关返回的异常
+      const error = err.data
+      console.error(JSON.stringify(error))
+    } else {
+      // TODO: 处理异常
+      console.error(err)
     }
+  }
+}
+
+async function testGetByQuery () {
+  try {
+    const data = await client.get(config.apiPath, {
+      signedBy: 'query',
+      query: {
+        integratedProjectId: config.integrationId,
+        'X-iwop-before': 'wq666',
+        'x-iwop-integration-id': config.integrationId,
+        'x-IWOP-after': 'wq666'
+      }
+    })
+    console.log(data)
+  } catch (err) {
+    if (err instanceof OpenApiResponseError) {
+      // TODO: 处理api网关返回的异常
+      const error = err.data
+      console.error(JSON.stringify(error))
+    } else {
+      // TODO: 处理异常
+      console.error(err)
+    }
+  }
+}
+
+async function testPostByHeader () {
+  try {
+    const data = await client.post(config.apiPath, {
+      query: { integratedProjectId: config.integrationId },
+      contentType: 'application/xml',
+      headers: { 'x-iwop-integration-id': config.integrationId },
+      body: '<demo></demo>'
+    })
+    console.log(data)
+  } catch (err) {
+    if (err instanceof OpenApiResponseError) {
+      // TODO: 处理api网关返回的异常
+      const error = err.data
+      console.error(JSON.stringify(error))
+    } else {
+      // TODO: 处理异常
+      console.error(err)
+    }
+  }
+}
+
+async function main () {
+  try {
+    await testGetByHeader()
+    await testGetByQuery()
+    await testPostByHeader()
   } catch (ex) {
-    console.log(ex)
-  }
-
-  process.exit(0)
-}
-
-/**
- * @returns {Promise<number[]>}
- */
-async function getProjects () {
-  /**
-   * @type {number[]}
-   */
-  const projectIds = []
-  let startId = 0
-  let pageSize = 200
-  while (true) {
-    const apiUrl = `/org-api/projects?start=${startId}&limit=${pageSize}`
-    /**
-     * @type {any[]}
-     */
-    const projects = await client.get(apiUrl)
-    for (const proj of projects) {
-      projectIds.push(proj.id)
-    }
-    if (projects.length < pageSize) {
-      break
-    }
-    startId = projects[projects.length - 1].version
-  }
-  return projectIds
-}
-
-/**
- *
- * @param {string} table
- */
-async function getBiz (table) {
-  const apiUrl = `/v2/biz-data`
-  const arr = await client.post(apiUrl, {
-    body: {
-      tableName: table
-    },
-    headers: { 'content-type': 'application/json' }
-  })
-  console.log(`get ${arr.length} records on table ${table}`)
-}
-
-/**
- *
- * @param {number} orgId
- */
-async function getPcr (orgId) {
-  let startId = 0
-  let startVersion = 0
-  const pageSize = 50
-  while (true) {
-    const apiUrl = `/external/project-construction-record?startId=${startId}&startVersion=${startVersion}&limit=${pageSize}&orgId=${orgId}`
-    const arr = await client.get(apiUrl)
-    const count = arr.length
-    totalCount += count
-    writePcrFile(arr)
-    console.log(`get ${totalCount} records on project ${orgId}`)
-    if (count < pageSize) {
-      break
-    }
-    startId = arr[arr.length - 1].id
-    startVersion = arr[arr.length - 1].version
+    console.log(ex.data || ex.message)
   }
 }
 
-function writePcrFile (arr) {
-  fs.appendFileSync(outputFile, JSON.stringify(arr), { encoding: 'utf8' })
-}
+main()
