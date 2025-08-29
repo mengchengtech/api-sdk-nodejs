@@ -31,7 +31,34 @@ async function testGetByHeader () {
   }
 }
 
-async function testGetByQuery () {
+async function testGetByQuery1 () {
+  try {
+    const data = await client.get(config.apiPath, {
+      signedBy: {
+        mode: 'query',
+        parameters: { duration: 3600 }
+      },
+      query: {
+        integratedProjectId: config.integrationId,
+        'X-iwop-before': 'wq666',
+        'x-iwop-integration-id': config.integrationId,
+        'x-IWOP-after': 'wq666'
+      }
+    })
+    console.log(data)
+  } catch (err) {
+    if (err instanceof OpenApiResponseError) {
+      // TODO: 处理api网关返回的异常
+      const error = err.data
+      console.error(JSON.stringify(error))
+    } else {
+      // TODO: 处理异常
+      console.error(err)
+    }
+  }
+}
+
+async function testGetByQuery2 () {
   try {
     const data = await client.get(config.apiPath, {
       signedBy: 'query',
@@ -42,7 +69,6 @@ async function testGetByQuery () {
         'x-IWOP-after': 'wq666'
       }
     })
-    console.log(data)
   } catch (err) {
     if (err instanceof OpenApiResponseError) {
       // TODO: 处理api网关返回的异常
@@ -79,7 +105,8 @@ async function testPostByHeader () {
 async function main () {
   try {
     await testGetByHeader()
-    await testGetByQuery()
+    await testGetByQuery1()
+    await testGetByQuery2()
     await testPostByHeader()
   } catch (ex) {
     console.log(ex.data || ex.message)

@@ -113,25 +113,23 @@ function resolveError (xml) {
 }
 
 /**
- * @param {SignatureMode} mode
+ * @param {SignatureMode | SignedBy} signedBy
  * @param {SignatureOption} option
- * @param {number} [duration]
  * @returns {QuerySignedInfo | HeaderSignedInfo}
  */
-function generateSignature (mode, option, duration) {
+function generateSignature (signedBy, option) {
   if (!option.accessId) {
     throw new OpenApiClientError('accessId不能为null或empty')
   }
   if (!option.secret) {
     throw new OpenApiClientError('secret不能为null或empty')
   }
-  switch (mode) {
+  if (typeof signedBy === 'string') {
+    signedBy = /** @type {SignedBy} */ ({ mode: signedBy })
+  }
+  switch (signedBy.mode) {
     case 'header':
     case 'query':
-      break
-    case undefined:
-    case null:
-      mode = 'header'
       break
     default:
       throw new OpenApiClientError("mode可选值只能是'header'和'query'")
@@ -154,16 +152,22 @@ function generateSignature (mode, option, duration) {
   let query
   /** @type {HeaderSignedInfo['headers']} */
   let headers
-  if (mode === 'query') {
-    const d = duration || DEFAULT_EXPIRES
+  if (signedBy.mode === 'query') {
+    const signedByQuery = /** @type {SignedByQuery} */ (
+      signedBy
+    )
+    const d = signedByQuery.parameters?.duration || DEFAULT_EXPIRES
     const expires = Math.round(d + Date.now() / 1000)
     query = { AccessId: option.accessId, Expires: expires, Signature: null }
     time = String(expires)
   } else {
+    // const signedByHeader = /** @type {SignedByHeader} */ (
+    //   signedBy
+    // )
     time = new Date().toUTCString()
     headers = { Date: time, Authorization: null }
   }
-  const signed = computeSignature(mode, option, time)
+  const signed = computeSignature(signedBy.mode, option, time)
   if (process.env.DEBUG === 'true') {
     console.log(signed)
   }

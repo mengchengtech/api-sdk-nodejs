@@ -216,7 +216,7 @@ class OpenApiClient {
    * @private
    *
    * @param {import('axios').AxiosRequestConfig} req
-   * @param {import('../types').SignatureMode} [signedBy]
+   * @param {SignatureMode | SignedBy} [signedBy]
    */
   makeSignature (req, signedBy) {
     const reqHeaders = /** @type {AxiosHeaders} */ (req.headers)
@@ -228,6 +228,9 @@ class OpenApiClient {
       method: req.method,
       contentType: /** @type {string} */ (reqHeaders.get('Content-Type')),
       headers: req.headers
+    }
+    if (!signedBy) {
+      signedBy = /** @type {SignedByHeader} */ ({ mode: 'header' })
     }
     const signedInfo = utility.generateSignature(signedBy, option)
     if ('headers' in signedInfo) {

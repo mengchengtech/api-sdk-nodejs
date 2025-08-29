@@ -34,6 +34,27 @@ declare type JSONObject = any[] | Record<string, any>
  */
 declare type SignatureMode = 'query' | 'header'
 
+declare interface QuerySignatureParams {
+  /**
+   * 生成的签名有效持续时间（秒）
+   */
+  duration: number
+}
+
+declare interface SignedByHeader {
+  mode: 'header'
+}
+
+declare interface SignedByQuery {
+  mode: 'query'
+  /**
+   * 生成query格式签名用到的参数
+   */
+  parameters?: QuerySignatureParams
+}
+
+declare type SignedBy = SignedByHeader | SignedByQuery
+
 declare interface RequestOption<T extends keyof ResponseTypeMap = 'json'> {
   query?: Record<string, string>
   /**
@@ -47,7 +68,7 @@ declare interface RequestOption<T extends keyof ResponseTypeMap = 'json'> {
   /**
    * api调用签名信息传递方式。默认值为'header'
    */
-  signedBy?: SignatureMode
+  signedBy?: SignatureMode | SignedBy
 }
 
 export class OpenApiClient {
@@ -132,11 +153,11 @@ declare interface HeaderSignedInfo {
 
 declare namespace utility {
   function generateSignature(
-    mode: 'header',
+    signedBy: SignedByHeader | 'header',
     option: SignatureOption
   ): HeaderSignedInfo
   function generateSignature(
-    mode: 'query',
+    signedBy: SignedByQuery | 'query',
     option: SignatureOption,
     duration?: number
   ): QuerySignedInfo

@@ -3,6 +3,9 @@ declare type RequestOption<T extends keyof ResponseTypeMap> =
   import('../types').RequestOption<T>
 declare type SignatureOption = import('../types').SignatureOption
 declare type ApiGatewayErrorData = import('../types').ApiGatewayErrorData
+declare type SignedBy = import('../types').SignedBy
+declare type SignedByHeader = import('../types').SignedByHeader
+declare type SignedByQuery = import('../types').SignedByQuery
 declare type SignatureMode = import('../types').SignatureMode
 declare type SignedData = import('../types').SignedData
 
